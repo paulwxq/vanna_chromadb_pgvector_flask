@@ -30,7 +30,6 @@ cache = MemoryCache()
 # )
 
 vn = create_vanna_instance()
-vn.list_config_parameters(print_output=True)
 
 # NO NEED TO CHANGE ANYTHING BELOW THIS LINE
 def requires_cache(fields):
