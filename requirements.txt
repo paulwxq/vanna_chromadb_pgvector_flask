@@ -1,0 +1,8 @@
+flask
+vanna[chromadb,pgvector,openai,ollama,postgres,mysql]
+db-dtypes
+python-dotenv
+langchain-huggingface
+requests
+psycopg2-binary
+dashscope
