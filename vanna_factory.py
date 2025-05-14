@@ -1,10 +1,10 @@
-from vanna.chromadb import ChromaDB_VectorStore
+from mychromadb import My_ChromaDB_VectorStore
 from qianwen import QianWenAI_Chat
 import ext_config
 
-class Myvanna(ChromaDB_VectorStore, QianWenAI_Chat):
+class Myvanna(My_ChromaDB_VectorStore, QianWenAI_Chat):
     def __init__(self, config=None):
-        ChromaDB_VectorStore.__init__(self, config=config)
+        My_ChromaDB_VectorStore.__init__(self, config=config)
         QianWenAI_Chat.__init__(self, config=config)
 
 def create_vanna_instance(config_module=None):
