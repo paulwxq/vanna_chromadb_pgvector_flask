@@ -75,66 +75,82 @@ class QianWenAI_Chat(VannaBase):
     for message in prompt:
       num_tokens += len(message["content"]) / 4
 
+    # 从配置和参数中获取enable_thinking设置
+    # 优先使用参数中传入的值，如果没有则从配置中读取，默认为False
+    enable_thinking = kwargs.get("enable_thinking", self.config.get("enable_thinking", False))
+    
+    # 公共参数
+    common_params = {
+      "messages": prompt,
+      "stop": None,
+      "temperature": self.temperature,
+    }
+    
+    # 如果启用了thinking，则使用流式处理，但不直接传递enable_thinking参数
+    if enable_thinking:
+      common_params["stream"] = True
+      # 千问API不接受enable_thinking作为参数，可能需要通过header或其他方式传递
+      # 也可能它只是默认启用stream=True时的thinking功能
+    
+    model = None
+    # 确定使用的模型
     if kwargs.get("model", None) is not None:
       model = kwargs.get("model", None)
-      print(
-        f"Using model {model} for {num_tokens} tokens (approx)"
-      )
-      response = self.client.chat.completions.create(
-        model=model,
-        messages=prompt,
-        stop=None,
-        temperature=self.temperature,
-      )
+      common_params["model"] = model
     elif kwargs.get("engine", None) is not None:
       engine = kwargs.get("engine", None)
-      print(
-        f"Using model {engine} for {num_tokens} tokens (approx)"
-      )
-      response = self.client.chat.completions.create(
-        engine=engine,
-        messages=prompt,
-        stop=None,
-        temperature=self.temperature,
-      )
+      common_params["engine"] = engine
+      model = engine
     elif self.config is not None and "engine" in self.config:
-      print(
-        f"Using engine {self.config['engine']} for {num_tokens} tokens (approx)"
-      )
-      response = self.client.chat.completions.create(
-        engine=self.config["engine"],
-        messages=prompt,
-        stop=None,
-        temperature=self.temperature,
-      )
+      common_params["engine"] = self.config["engine"]
+      model = self.config["engine"]
     elif self.config is not None and "model" in self.config:
-      print(
-        f"Using model {self.config['model']} for {num_tokens} tokens (approx)"
-      )
-      response = self.client.chat.completions.create(
-        model=self.config["model"],
-        messages=prompt,
-        stop=None,
-        temperature=self.temperature,
-      )
+      common_params["model"] = self.config["model"]
+      model = self.config["model"]
     else:
       if num_tokens > 3500:
         model = "qwen-long"
       else:
         model = "qwen-plus"
+      common_params["model"] = model
+    
+    print(f"Using model {model} for {num_tokens} tokens (approx)")
+    
+    if enable_thinking:
+      # 流式处理模式
+      print("使用流式处理模式，启用thinking功能")
+      
+      # 检查是否需要通过headers传递enable_thinking参数
+      response_stream = self.client.chat.completions.create(**common_params)
+      
+      # 收集流式响应
+      collected_thinking = []
+      collected_content = []
+      
+      for chunk in response_stream:
+        # 处理thinking部分
+        if hasattr(chunk, 'thinking') and chunk.thinking:
+          collected_thinking.append(chunk.thinking)
+        
+        # 处理content部分
+        if hasattr(chunk.choices[0].delta, 'content') and chunk.choices[0].delta.content:
+          collected_content.append(chunk.choices[0].delta.content)
+      
+      # 可以在这里处理thinking的展示逻辑，如保存到日志等
+      if collected_thinking:
+        print("Model thinking process:", "".join(collected_thinking))
+      
+      # 返回完整的内容
+      return "".join(collected_content)
+    else:
+      # 非流式处理模式
+      print("使用非流式处理模式")
+      response = self.client.chat.completions.create(**common_params)
+      
+      # Find the first response from the chatbot that has text in it (some responses may not have text)
+      for choice in response.choices:
+        if "text" in choice:
+          return choice.text
 
-      print(f"Using model {model} for {num_tokens} tokens (approx)")
-      response = self.client.chat.completions.create(
-        model=model,
-        messages=prompt,
-        stop=None,
-        temperature=self.temperature,
-      )
-
-    # Find the first response from the chatbot that has text in it (some responses may not have text)
-    for choice in response.choices:
-      if "text" in choice:
-        return choice.text
-
-    # If no response with text is found, return the first response's content (which may be empty)
-    return response.choices[0].message.content
+      # If no response with text is found, return the first response's content (which may be empty)
+      return response.choices[0].message.content

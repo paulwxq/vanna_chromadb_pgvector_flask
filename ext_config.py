@@ -1,14 +1,15 @@
 # Qwen模型配置
 QWEN_CONFIG = {
     "api_key": "sk-db68e37f00974031935395315bfe07f0",
-    "model": "qwen3-235b-a22b",
+    "model": "qwen-plus-latest",
     "allow_llm_to_see_data": True,
     "temperature": 0.6,
     "n_results_sql": 5,
     "n_results_documentation": 5,
     "n_results_ddl": 5,
     "language": "Chinese",
-    "use_ollama_embedding": True,
+    "use_ollama_embedding": True, #自定义，如果是false，则使用chromadb自带embedding。
+    "enable_thinking": False #自定义，是否支持流模式，仅qwen3模型。
 }
 #qwen3-30b-a3b
 #qwen3-235b-a22b
