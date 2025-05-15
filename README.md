@@ -30,3 +30,8 @@ pip install -r requirements.txt
 python app.py
 ```
 
+
+以下是修改PostgreSQL表字段类型的SQL语句，将langchain_pg_embedding表的collection_id字段从TEXT类型改为UUID类型：
+ALTER TABLE langchain_pg_embedding
+ALTER COLUMN collection_id TYPE uuid
+USING collection_id::uuid;

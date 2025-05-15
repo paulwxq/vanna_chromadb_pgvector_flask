@@ -6,3 +6,4 @@ langchain-huggingface
 requests
 psycopg2-binary
 dashscope
+psycopg[binary]

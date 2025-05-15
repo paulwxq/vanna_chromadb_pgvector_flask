@@ -7,29 +7,30 @@ import concurrent.futures
 from functools import lru_cache
 from collections import defaultdict
 from typing import List, Dict, Any, Tuple, Optional, Union, Callable
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import ext_config
 from vanna_factory import create_vanna_instance
 
 vn = create_vanna_instance()
 
-# 打印当前使用的embedding模型
-try:
-    if hasattr(vn, 'config') and vn.config:
-        if 'engine' in vn.config:
-            print(f"\n===== 当前使用的Embedding模型: {vn.config['engine']} =====")
-        elif hasattr(vn, '_embeddings') and hasattr(vn._embeddings, 'config'):
-            if vn._embeddings.config and 'engine' in vn._embeddings.config:
-                print(f"\n===== 当前使用的Embedding模型: {vn._embeddings.config['engine']} =====")
-            else:
-                print("\n===== 当前使用的Embedding模型: bge-large-zh (默认值) =====")
-        else:
-            print("\n===== 当前使用的Embedding模型: bge-large-zh (默认值) =====")
-    else:
-        print("\n===== 当前使用的Embedding模型: bge-large-zh (默认值) =====")
-except Exception as e:
-    print(f"\n===== 无法获取Embedding模型信息: {e} =====")
+def get_default_embedding_model():
+    """获取系统默认的Embedding模型名称"""
+    # 从Vanna对象获取
+    if hasattr(vn, 'get_default_embedding_model'):
+        return vn.get_default_embedding_model()
+    # 从配置获取
+    elif hasattr(ext_config, 'DEFAULT_EMBEDDING_MODEL'):
+        return ext_config.DEFAULT_EMBEDDING_MODEL
+    # 最后的备选值
+    return "bge-large-zh"
 
-# 读取批处理配置 (从config.py)
+# 使用函数获取默认值
+embedding_model = get_default_embedding_model()
+print(f"\n===== 当前使用的Embedding模型: {embedding_model} =====")
+
+# 从ext_config获取其他配置
 BATCH_PROCESSING_ENABLED = ext_config.BATCH_PROCESSING_ENABLED
 BATCH_SIZE = ext_config.BATCH_SIZE
 MAX_WORKERS = ext_config.MAX_WORKERS
@@ -74,8 +75,6 @@ class BatchProcessor:
                 vn.train(ddl=item['ddl'])
             elif batch_type == 'documentation':
                 vn.train(documentation=item['documentation'])
-            elif batch_type == 'sql':
-                vn.train(sql=item['sql'])
             elif batch_type == 'question_sql':
                 vn.train(question=item['question'], sql=item['sql'])
             
@@ -105,13 +104,6 @@ class BatchProcessor:
                     batch_data.append({
                         'type': 'documentation',
                         'content': item['documentation']
-                    })
-            
-            elif batch_type == 'sql':
-                for item in items:
-                    batch_data.append({
-                        'type': 'sql',
-                        'content': item['sql']
                     })
             
             elif batch_type == 'question_sql':
@@ -180,8 +172,99 @@ def train_documentation(doc: str):
     batch_processor.add_item('documentation', {'documentation': doc})
 
 def train_sql_example(sql: str):
+    """训练单个SQL示例，通过SQL生成相应的问题"""
     print(f"[SQL] Training on SQL:\n{sql}")
-    batch_processor.add_item('sql', {'sql': sql})
+    
+    # 从SQL提取注释信息
+    comment_info = None
+    try:
+        if "--" in sql:
+            comment_parts = sql.split("--")
+            comment_info = comment_parts[1].split("\n")[0].strip()
+    except Exception as e:
+        # 如果提取注释失败，不报错，只记录日志
+        print(f"[INFO] 提取SQL注释信息时出现问题: {e}")
+    
+    # 使用大模型生成问题
+    try:
+        # 准备提示词
+        if comment_info:
+            prompt = f"""
+根据以下SQL及其注释，生成一个简洁、明确的中文问题，问题应该能够反映SQL的功能或目的。
+注释信息: {comment_info}
+SQL: {sql}
+生成的问题需要是一个问句，以问号结尾。
+"""
+        else:
+            prompt = f"""
+根据以下SQL，生成一个简洁、明确的中文问题，问题应该能够反映SQL的功能或目的。
+SQL: {sql}
+生成的问题需要是一个问句，以问号结尾。
+"""
+        
+        # 使用vn对象调用大模型生成问题
+        if hasattr(vn, 'generate_question_for_sql') and callable(getattr(vn, 'generate_question_for_sql')):
+            # 如果有专门的方法，使用它
+            question = vn.generate_question_for_sql(sql=sql, comment=comment_info)
+        elif hasattr(vn, 'llm') and hasattr(vn.llm, 'generate'):
+            # 尝试通过llm属性调用生成方法
+            question = vn.llm.generate(prompt)
+        elif hasattr(vn, 'generate_text'):
+            # 尝试使用generate_text方法
+            question = vn.generate_text(prompt)
+        else:
+            # 如果无法调用大模型，使用基于规则的方法生成问题
+            print("[INFO] 无法调用大模型生成问题，使用规则方法生成")
+            
+            # 使用注释作为基本问题
+            if comment_info:
+                question = comment_info
+                if not question.endswith("?"):
+                    question += "?"
+            else:
+                # 使用基于SQL结构的规则生成问题
+                if "SELECT" in sql.upper():
+                    if "COUNT" in sql.upper():
+                        question = "如何统计指定条件的记录数量？"
+                    elif "SUM" in sql.upper() or "AVG" in sql.upper():
+                        question = "如何计算字段的汇总值？"
+                    elif "GROUP BY" in sql.upper():
+                        question = "如何按分组统计数据？"
+                    elif "JOIN" in sql.upper():
+                        question = "如何连接多个表查询数据？"
+                    elif "ORDER BY" in sql.upper():
+                        question = "如何对查询结果进行排序？"
+                    else:
+                        question = "如何查询指定条件的数据？"
+                elif "INSERT" in sql.upper():
+                    question = "如何插入新数据？"
+                elif "UPDATE" in sql.upper():
+                    question = "如何更新现有数据？"
+                elif "DELETE" in sql.upper():
+                    question = "如何删除满足条件的数据？"
+                elif "CREATE" in sql.upper():
+                    question = "如何创建数据库对象？"
+                elif "ALTER" in sql.upper():
+                    question = "如何修改数据库对象结构？"
+                else:
+                    question = "如何执行这个SQL语句？"
+                    
+        # 处理问题格式
+        question = question.strip()
+        if not question.endswith("?"):
+            question += "?"
+            
+    except Exception as e:
+        print(f"[WARNING] 生成问题时出错: {e}")
+        # 如果有注释，使用注释作为问题
+        if comment_info:
+            question = comment_info + "?"
+        else:
+            question = "如何执行这个SQL语句？"
+        
+    print(f"[SQL] 生成问题: {question}")
+    # 使用标准方式存储问题-SQL对
+    batch_processor.add_item('question_sql', {'question': question, 'sql': sql})
 
 def train_question_sql_pair(question: str, sql: str):
     print(f"[Q-S] Training on:\nquestion: {question}\nsql: {sql}")
@@ -195,4 +278,4 @@ def flush_training():
 # 关闭训练器
 def shutdown_trainer():
     """关闭训练器和相关资源"""
-    batch_processor.shutdown()
+    batch_processor.shutdown() 

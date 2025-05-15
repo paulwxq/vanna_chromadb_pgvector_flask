@@ -81,3 +81,27 @@ class OllamaEmbeddingFunction:
             print(f"[ERROR] Ollama嵌入向量生成异常: {str(e)}")
             print("===调试: 嵌入向量生成失败===\n")
             raise 
+
+    def embed_documents(self, texts):
+        """批量将文档转换为向量
+        
+        Args:
+            texts: 文档列表
+            
+        Returns:
+            文档向量列表
+        """
+        # 如果已有embed_query方法，可以复用它
+        return [self.embed_query(text) for text in texts] 
+
+    def embed_query(self, text):
+        """将单个文本转换为向量
+        
+        Args:
+            text: 输入文本
+            
+        Returns:
+            嵌入向量
+        """
+        # 调用现有的生成嵌入方法
+        return self.generate_embedding(text) 

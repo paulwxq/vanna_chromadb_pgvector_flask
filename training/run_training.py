@@ -3,6 +3,9 @@ import os
 import time
 import re
 import json
+import sys
+
+
 from vanna_trainer import (
     train_ddl,
     train_documentation,
@@ -11,7 +14,6 @@ from vanna_trainer import (
     flush_training,
     shutdown_trainer
 )
-from tools.chroma_cleaner import clear_chroma_database
 
 def read_file_by_delimiter(filepath, delimiter="---"):
     """通用读取：将文件按分隔符切片为多个段落"""
@@ -282,23 +284,36 @@ def train_json_question_sql_pairs(json_file):
 
 def main():
     """主函数：配置和运行训练流程"""
-    # 打印ChromaDB相关信息
-    try:
-        import os
-        import mychromadb
-        
-        # 尝试查看当前使用的ChromaDB文件
-        chroma_file = "chroma.sqlite3"  # 默认文件名
-        if os.path.exists(chroma_file):
-            file_size = os.path.getsize(chroma_file) / 1024  # KB
-            print(f"\n===== ChromaDB数据库: {os.path.abspath(chroma_file)} (大小: {file_size:.2f} KB) =====")
-        else:
-            print("\n===== 未找到默认ChromaDB数据库文件 =====")
+    
+    # 导入os模块
+    import os
+    import ext_config
+
+    # 打印当前使用的向量数据库
+    print(f"\n===== 当前使用的向量数据库: {ext_config.VECTOR_DB_TYPE} =====")
+    
+    # 如果使用PgVector，提供一些额外信息
+    if ext_config.VECTOR_DB_TYPE == "pgvector":
+        print(f"PgVector数据库: {ext_config.PGVECTOR_HOST}:{ext_config.PGVECTOR_PORT}/{ext_config.PGVECTOR_DB}")
+        print(f"PgVector表: {ext_config.PGVECTOR_TABLE}")
+
+    # 打印ChromaDB相关信息 - 仅当使用ChromaDB时才执行
+    if ext_config.VECTOR_DB_TYPE.lower() == "chromadb":
+        try:
+            import mychromadb
             
-        # 尝试获取ChromaDB版本
-        print(f"===== ChromaDB版本: {mychromadb.__version__} =====\n")
-    except Exception as e:
-        print(f"\n===== 无法获取ChromaDB信息: {e} =====\n")
+            # 尝试查看当前使用的ChromaDB文件
+            chroma_file = "chroma.sqlite3"  # 默认文件名
+            if os.path.exists(chroma_file):
+                file_size = os.path.getsize(chroma_file) / 1024  # KB
+                print(f"\n===== ChromaDB数据库: {os.path.abspath(chroma_file)} (大小: {file_size:.2f} KB) =====")
+            else:
+                print("\n===== 未找到默认ChromaDB数据库文件 =====")
+                
+            # 尝试获取ChromaDB版本
+            print(f"===== ChromaDB版本: {mychromadb.__version__ if hasattr(mychromadb, '__version__') else '未知'} =====\n")
+        except Exception as e:
+            print(f"\n===== 无法获取ChromaDB信息: {e} =====\n")
     
     # 配置基础路径
     BASE_PATH = r"D:\TechDoc\NL2SQL\RetailStoreStarSchemaDataset"  # Windows 路径格式
@@ -327,7 +342,18 @@ def main():
     print("\n===== 训练完成，处理剩余批次 =====")
     flush_training()
     shutdown_trainer()
+    
+    # 验证数据是否成功写入
+    print("\n===== 验证训练数据 =====")
+    from vanna_factory import create_vanna_instance
+    vn = create_vanna_instance()
+    training_data = vn.get_training_data()
+    
+    if not training_data.empty:
+        print(f"成功写入 {len(training_data)} 条训练数据")
+    else:
+        print("未找到任何训练数据，请检查数据库连接和表结构")
 
 
 if __name__ == "__main__":
-    main()
+    main() 
