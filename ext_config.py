@@ -9,7 +9,7 @@ VECTOR_DB_TYPE = "pgvector"
 
 # DeepSeek模型配置
 DEEPSEEK_CONFIG = {
-    "api_key": "sk-c7f3f8465f594bf3bfab42ead0f98ebc",  # 需要替换为实际的API密钥
+    "api_key": "sk-",  # 需要替换为实际的API密钥
     "model": "deepseek-reasoner",  # deepseek-chat, deepseek-reasoner
     "allow_llm_to_see_data": True,
     "temperature": 0.6,
@@ -24,7 +24,7 @@ DEEPSEEK_CONFIG = {
 
 # Qwen模型配置
 QWEN_CONFIG = {
-    "api_key": "sk-db68e37f00974031935395315bfe07f0",
+    "api_key": "sk-",
     "model": "qwen-plus",
     "allow_llm_to_see_data": True,
     "temperature": 0.6,
