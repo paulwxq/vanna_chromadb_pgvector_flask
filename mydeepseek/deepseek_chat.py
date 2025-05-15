@@ -51,7 +51,7 @@ class DeepSeekChat(VannaBase):
         return {"role": "system", "content": message}
 
     def user_message(self, message: str) -> any:
-        print(f"user_content: {message}")
+        print(f"\nuser_content: {message}")
         return {"role": "user", "content": message}
 
     def assistant_message(self, message: str) -> any:
@@ -74,7 +74,7 @@ class DeepSeekChat(VannaBase):
         # 从配置和参数中获取model设置，kwargs优先
         model = kwargs.get("model", self.model)
         
-        print(f"Using model {model} for {num_tokens} tokens (approx)")
+        print(f"\nUsing model {model} for {num_tokens} tokens (approx)")
         
         # 创建请求参数
         chat_params = {

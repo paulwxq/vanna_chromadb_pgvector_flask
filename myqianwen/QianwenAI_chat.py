@@ -55,7 +55,7 @@ class QianWenAI_Chat(VannaBase):
     return {"role": "system", "content": message}
 
   def user_message(self, message: str) -> any:
-    print(f"user_content: {message}")
+    print(f"\nuser_content: {message}")
     return {"role": "user", "content": message}
 
   def assistant_message(self, message: str) -> any:
@@ -114,7 +114,7 @@ class QianWenAI_Chat(VannaBase):
         model = "qwen-plus"
       common_params["model"] = model
     
-    print(f"Using model {model} for {num_tokens} tokens (approx)")
+    print(f"\nUsing model {model} for {num_tokens} tokens (approx)")
     
     if enable_thinking:
       # 流式处理模式
