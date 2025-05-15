@@ -1,7 +1,7 @@
 # Qwen模型配置
 QWEN_CONFIG = {
     "api_key": "sk-db68e37f00974031935395315bfe07f0",
-    "model": "qwen-plus",
+    "model": "qwen3-235b-a22b",
     "allow_llm_to_see_data": True,
     "temperature": 0.6,
     "n_results_sql": 5,
@@ -12,6 +12,7 @@ QWEN_CONFIG = {
 }
 #qwen3-30b-a3b
 #qwen3-235b-a22b
+#qwen-plus-latest
 
 # Ollama配置（用于本地Embedding生成）
 OLLAMA_BASE_URL = "http://localhost:11434"

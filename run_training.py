@@ -285,7 +285,7 @@ def main():
     # 打印ChromaDB相关信息
     try:
         import os
-        import chromadb
+        import mychromadb
         
         # 尝试查看当前使用的ChromaDB文件
         chroma_file = "chroma.sqlite3"  # 默认文件名
@@ -296,7 +296,7 @@ def main():
             print("\n===== 未找到默认ChromaDB数据库文件 =====")
             
         # 尝试获取ChromaDB版本
-        print(f"===== ChromaDB版本: {chromadb.__version__} =====\n")
+        print(f"===== ChromaDB版本: {mychromadb.__version__} =====\n")
     except Exception as e:
         print(f"\n===== 无法获取ChromaDB信息: {e} =====\n")
     

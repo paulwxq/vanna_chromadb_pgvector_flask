@@ -8,7 +8,7 @@ import os
 import shutil
 import time
 import argparse
-from chromadb import Client, Settings
+from mychromadb import Client, Settings
 
 def clear_chroma_database(db_path="chroma.sqlite3"):
     """清理Chroma数据库数据

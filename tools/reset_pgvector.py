@@ -13,7 +13,7 @@ import psycopg2
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 导入配置文件
-import config as app_config # 使用别名
+import ext_config as app_config # 使用别名
 
 # 导入正确的模块 (vn实例可能不需要了，因为我们直接用配置)
 # from vanna_pgvector_qwen import vn # 如果vn实例在这里没有其他用途，可以注释掉
