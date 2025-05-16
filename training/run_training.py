@@ -5,6 +5,8 @@ import re
 import json
 import sys
 import requests
+import pandas as pd
+from sqlalchemy import create_engine
 
 
 from vanna_trainer import (
@@ -38,13 +40,40 @@ def check_embedding_model_connection():
                 
             # 检查嵌入模型是否可用
             embedding_model = ext_config.OLLAMA_EMBEDDING_MODEL
+            embedding_dimension = ext_config.OLLAMA_EMBEDDING_DIMENSION
             models = [model["name"] for model in response.json().get("models", [])]
             
             if not any(embedding_model.split(":")[0] in model for model in models):
                 print(f"警告: 未找到指定的嵌入模型 {embedding_model}，但Ollama服务正常运行")
                 print(f"可用模型: {models}")
+            
+            # 测试生成向量，验证维度
+            print(f"正在验证嵌入模型的向量维度...")
+            try:
+                # 导入嵌入功能类
+                from ollama_embedding import OllamaEmbeddingFunction
                 
-            print(f"Ollama服务连接成功! 可以继续训练过程。")
+                # 创建实例并测试
+                embedding_function = OllamaEmbeddingFunction(
+                    model_name=embedding_model,
+                    base_url=ext_config.OLLAMA_BASE_URL
+                )
+                
+                # 测试生成向量
+                test_vector = embedding_function.generate_embedding("测试文本")
+                actual_dimension = len(test_vector)
+                
+                if actual_dimension != embedding_dimension:
+                    print(f"注意: 模型实际生成的向量维度({actual_dimension})与配置维度({embedding_dimension})不一致")
+                    print(f"建议将ext_config.py中的OLLAMA_EMBEDDING_DIMENSION修改为{actual_dimension}")
+                else:
+                    print(f"向量维度验证成功: {embedding_dimension}")
+                
+            except Exception as e:
+                print(f"向量维度验证失败: {e}")
+                
+            print(f"Ollama服务连接成功! 使用模型: {embedding_model}, 向量维度: {embedding_dimension}")
+            print(f"可以继续训练过程。")
             return True
         else:
             # 使用vanna实例测试
@@ -397,13 +426,53 @@ def main():
     print("\n===== 验证训练数据 =====")
     from vanna_factory import create_vanna_instance
     vn = create_vanna_instance()
-    training_data = vn.get_training_data()
     
-    if not training_data.empty:
-        print(f"成功写入 {len(training_data)} 条训练数据")
+    # 根据向量数据库类型执行不同的验证逻辑
+    if ext_config.VECTOR_DB_TYPE.lower() == "pgvector":
+        try:
+            # 使用PgVector的数据库连接直接查询
+            connection_string = f"postgresql://{ext_config.PGVECTOR_USER}:{ext_config.PGVECTOR_PASSWORD}@{ext_config.PGVECTOR_HOST}:{ext_config.PGVECTOR_PORT}/{ext_config.PGVECTOR_DB}"
+            engine = create_engine(connection_string)
+            
+            # 查询总记录数
+            query_total = "SELECT COUNT(*) FROM langchain_pg_embedding"
+            total_count = pd.read_sql(query_total, engine).iloc[0, 0]
+            
+            # 按类型查询记录数
+            query_by_type = """
+            SELECT c.name, COUNT(*) as count
+            FROM langchain_pg_embedding e
+            JOIN langchain_pg_collection c ON e.collection_id = c.uuid
+            GROUP BY c.name
+            """
+            type_counts = pd.read_sql(query_by_type, engine)
+            
+            print(f"成功写入 {total_count} 条训练数据:")
+            for _, row in type_counts.iterrows():
+                print(f" - {row['name']}: {row['count']}条")
+                
+        except Exception as e:
+            print(f"统计训练数据失败: {e}")
+            # 使用通用方法作为备选
+            training_data = vn.get_training_data()
+            if not training_data.empty:
+                print(f"成功写入 {len(training_data)} 条训练数据")
+            else:
+                print("未找到任何训练数据，请检查数据库连接和表结构")
     else:
-        print("未找到任何训练数据，请检查数据库连接和表结构")
-
+        # 使用通用方法获取训练数据（包括ChromaDB）
+        training_data = vn.get_training_data()
+        # get_training_data方法已经打印了详细信息，这里不需要重复
+    
+    # 输出embedding模型信息
+    print("\n===== Embedding模型信息 =====")
+    print(f"模型名称: {ext_config.OLLAMA_EMBEDDING_MODEL}")
+    print(f"向量维度: {ext_config.OLLAMA_EMBEDDING_DIMENSION}")
+    if ext_config.VECTOR_DB_TYPE.lower() == "pgvector":
+        print(f"向量数据库: PgVector ({ext_config.PGVECTOR_HOST}:{ext_config.PGVECTOR_PORT}/{ext_config.PGVECTOR_DB})")
+    else:
+        print(f"向量数据库: ChromaDB ({ext_config.CHROMADB_PATH})")
+    print("===== 训练流程完成 =====\n")
 
 if __name__ == "__main__":
     main() 

@@ -68,7 +68,7 @@ def create_vanna_instance(config_module=None):
         
         # 将embedding_function添加到配置中
         config["embedding_function"] = embedding_function
-        print(f"已配置使用Ollama ({config_module.OLLAMA_EMBEDDING_MODEL})作为嵌入向量模型")
+        print(f"已配置使用Ollama ({config_module.OLLAMA_EMBEDDING_MODEL})作为嵌入向量模型，维度: {config_module.OLLAMA_EMBEDDING_DIMENSION}")
     
     # 根据向量数据库类型添加特定的配置
     if vector_db_type == "pgvector":

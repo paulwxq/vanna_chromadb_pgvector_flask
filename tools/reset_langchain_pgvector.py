@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # 导入配置文件
 import ext_config as app_config
 
-def reset_langchain_pgvector(host=None, port=None, dbname=None, user=None, password=None, dimension=1536, confirm=False):
+def reset_langchain_pgvector(host=None, port=None, dbname=None, user=None, password=None, dimension=None, confirm=False):
     """
     重置LangChain PGVector数据库表
     
@@ -36,10 +36,14 @@ def reset_langchain_pgvector(host=None, port=None, dbname=None, user=None, passw
     pgvector_user = user or app_config.PGVECTOR_USER
     pgvector_password = password or app_config.PGVECTOR_PASSWORD
     
+    # 使用传入参数或从配置文件获取向量维度
+    vector_dimension = dimension or app_config.OLLAMA_EMBEDDING_DIMENSION
+    
     # 如果未确认且不是交互式运行，提示确认
     if not confirm:
         print(f"警告: 此操作将删除或清空langchain_pg_collection和langchain_pg_embedding表！")
         print(f"数据库连接信息: {pgvector_host}:{pgvector_port}/{pgvector_db}")
+        print(f"向量维度: {vector_dimension}")
         confirm_input = input("确认继续？(y/N): ")
         if confirm_input.lower() not in ['y', 'yes']:
             print("操作已取消")
@@ -91,44 +95,26 @@ def reset_langchain_pgvector(host=None, port=None, dbname=None, user=None, passw
         table_exists = cursor.fetchone()[0]
         
         if table_exists:
-            print("表langchain_pg_embedding已存在，正在清空数据...")
-            cursor.execute("TRUNCATE TABLE langchain_pg_embedding")
-            
-            # 检查collection_id字段类型并修正
-            cursor.execute("""
-            SELECT data_type FROM information_schema.columns 
-            WHERE table_name = 'langchain_pg_embedding' AND column_name = 'collection_id'
-            """)
-            col_type = cursor.fetchone()[0]
-            
-            if col_type.lower() != 'uuid':
-                print(f"检测到collection_id字段类型为{col_type}，正在修改为UUID类型...")
-                # 先删除依赖此表的约束
-                cursor.execute("ALTER TABLE langchain_pg_embedding DROP CONSTRAINT IF EXISTS langchain_pg_embedding_collection_id_fkey")
-                # 修改字段类型
-                cursor.execute("ALTER TABLE langchain_pg_embedding ALTER COLUMN collection_id TYPE UUID USING collection_id::uuid")
-                print("✅ collection_id字段已修改为UUID类型")
-            else:
-                print("✅ collection_id字段已是UUID类型")
-                
-            print("✅ 表langchain_pg_embedding已清空")
-        else:
-            print("创建langchain_pg_embedding表...")
-            cursor.execute(f"""
-            CREATE TABLE langchain_pg_embedding (
-                id text not null primary key,
-                collection_id UUID,
-                document TEXT,
-                embedding VECTOR({dimension}),
-                cmetadata JSONB
-            )
-            """)
-            print(f"✅ 表langchain_pg_embedding已创建，支持{dimension}维向量")
+            print("表langchain_pg_embedding已存在，正在删除...")
+            cursor.execute("DROP TABLE langchain_pg_embedding")
+            print("✅ 表langchain_pg_embedding已删除")
+        
+        print(f"创建langchain_pg_embedding表，向量维度: {vector_dimension}...")
+        cursor.execute(f"""
+        CREATE TABLE langchain_pg_embedding (
+            id text not null primary key,
+            collection_id UUID,
+            document TEXT,
+            embedding VECTOR({vector_dimension}),
+            cmetadata JSONB
+        )
+        """)
+        print(f"✅ 表langchain_pg_embedding已创建，支持{vector_dimension}维向量")
         
         # 创建索引
         print("创建向量索引...")
         cursor.execute("""
-        CREATE INDEX IF NOT EXISTS langchain_pg_embedding_embedding_idx 
+        CREATE INDEX langchain_pg_embedding_embedding_idx 
         ON langchain_pg_embedding 
         USING ivfflat (embedding vector_cosine_ops) 
         WITH (lists = 100)
@@ -152,7 +138,7 @@ if __name__ == "__main__":
     parser.add_argument('--dbname', type=str, help='数据库名称')
     parser.add_argument('--user', type=str, help='数据库用户')
     parser.add_argument('--password', type=str, help='数据库密码')
-    parser.add_argument('--dimension', type=int, default=1024, help='向量维度 (默认: 1024)')
+    parser.add_argument('--dimension', type=int, help=f'向量维度 (默认: {app_config.OLLAMA_EMBEDDING_DIMENSION})')
     parser.add_argument('--force', action='store_true', help='强制执行，不提示确认')
     
     args = parser.parse_args()

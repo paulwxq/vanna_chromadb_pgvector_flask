@@ -1,5 +1,6 @@
 import requests
 from typing import List, Union
+import ext_config
 
 class OllamaEmbeddingFunction:
     """Ollama嵌入向量生成类，符合ChromaDB的embedding_function接口"""
@@ -15,7 +16,8 @@ class OllamaEmbeddingFunction:
         """
         self.embedding_model_name = model_name
         self.ollama_base_url = base_url
-        print(f"已初始化Ollama嵌入向量生成器 (模型: {model_name})")
+        self.embedding_dimension = ext_config.OLLAMA_EMBEDDING_DIMENSION
+        print(f"已初始化Ollama嵌入向量生成器 (模型: {model_name}, 维度: {self.embedding_dimension})")
     
     def __call__(self, input: Union[str, List[str]]) -> List[List[float]]:
         """
@@ -48,8 +50,8 @@ class OllamaEmbeddingFunction:
         # 处理空字符串输入
         if not data or len(data.strip()) == 0:
             print("[WARNING] 输入文本为空，返回零向量")
-            # 返回1024维的零向量
-            return [0.0] * 1024
+            # 返回配置中指定维度的零向量
+            return [0.0] * self.embedding_dimension
         
         try:
             # 直接调用Ollama API
@@ -70,6 +72,13 @@ class OllamaEmbeddingFunction:
                 error_msg = "API返回中没有embedding字段"
                 print(f"错误: {error_msg}")
                 raise Exception(error_msg)
+                
+            # 检查返回的向量维度与配置是否一致
+            actual_dimension = len(vector)
+            if actual_dimension != self.embedding_dimension:
+                print(f"[警告] 模型返回的向量维度({actual_dimension})与配置维度({self.embedding_dimension})不一致")
+                # 更新维度设置为实际值
+                self.embedding_dimension = actual_dimension
                 
             print(f"向量长度: {len(vector)}")
             print(f"向量前5个元素: {vector[:5]}")

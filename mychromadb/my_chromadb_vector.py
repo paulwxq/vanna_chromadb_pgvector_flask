@@ -164,6 +164,16 @@ class My_ChromaDB_VectorStore(VannaBase):
             df_doc["training_data_type"] = "documentation"
 
             df = pd.concat([df, df_doc])
+            
+        # 输出详细统计信息
+        total = len(df)
+        if not df.empty:
+            by_type = df["training_data_type"].value_counts().to_dict()
+            print(f"获取到 {total} 条训练数据:")
+            for type_name, count in by_type.items():
+                print(f" - {type_name}: {count}条")
+        else:
+            print(f"获取到 {total} 条训练数据")
 
         return df
 

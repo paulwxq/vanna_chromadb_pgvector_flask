@@ -7,7 +7,7 @@ load_dotenv()
 
 # 使用的模型类型（"qwen" 或 "deepseek"）
 # 通过修改这个值来切换使用的模型
-MODEL_TYPE = "deepseek"
+MODEL_TYPE = "qwen"
 
 # 使用的向量数据库类型 ("chromadb" 或 "pgvector")
 # 通过修改这个值来切换使用的向量数据库
@@ -48,7 +48,14 @@ QWEN_CONFIG = {
 
 # Ollama配置（用于本地Embedding生成）
 OLLAMA_BASE_URL = "http://localhost:11434"
-OLLAMA_EMBEDDING_MODEL = "bge-m3:latest"
+#OLLAMA_EMBEDDING_MODEL = "bge-m3:567m"
+OLLAMA_EMBEDDING_MODEL = "quentinz/bge-large-zh-v1.5"
+#OLLAMA_EMBEDDING_MODEL = "bge-m3:latest"
+#OLLAMA_EMBEDDING_MODEL = "turingdance/m3e-base:latest"
+#OLLAMA_EMBEDDING_MODEL = "chevalblanc/acge_text_embedding:latest"
+#OLLAMA_EMBEDDING_DIMENSION = 1024  # 嵌入向量维度，可以根据不同模型进行调整
+
+OLLAMA_EMBEDDING_DIMENSION = 1024  
 
 # 应用数据库连接配置 (业务数据库)
 DB_HOST = "127.0.0.1"

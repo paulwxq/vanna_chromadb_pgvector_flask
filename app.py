@@ -137,12 +137,22 @@ def generate_plotly_figure(id: str, df, question, sql):
 @app.route('/api/v0/get_training_data', methods=['GET'])
 def get_training_data():
     df = vn.get_training_data()
-
+    
+    # 添加统计信息
+    stats = {}
+    if not df.empty and 'training_data_type' in df.columns:
+        type_counts = df['training_data_type'].value_counts().to_dict()
+        stats = {
+            "total": len(df),
+            "by_type": type_counts
+        }
+    
     return jsonify(
     {
         "type": "df", 
         "id": "training_data",
         "df": df.head(25).to_json(orient='records'),
+        "stats": stats
     })
 
 @app.route('/api/v0/remove_training_data', methods=['POST'])

@@ -293,6 +293,9 @@ class PG_VectorStore(VannaBase):
     def get_training_data(self, **kwargs) -> pd.DataFrame:
         """获取训练数据
         
+        从langchain_pg_embedding和langchain_pg_collection表联合查询，
+        根据collection表确定训练数据类型，不再从ID格式推断
+        
         Returns:
             包含所有训练数据的DataFrame
         """
@@ -300,35 +303,24 @@ class PG_VectorStore(VannaBase):
         try:
             engine = create_engine(self.connection_string)
 
-            # 查询 'langchain_pg_embedding' 表
-            query_embedding = "SELECT cmetadata, document FROM langchain_pg_embedding"
-            df_embedding = pd.read_sql(query_embedding, engine)
-
+            # 联合查询，通过collection表确定类型
+            query = """
+            SELECT e.cmetadata, e.document, c.name as training_data_type
+            FROM langchain_pg_embedding e
+            JOIN langchain_pg_collection c ON e.collection_id = c.uuid
+            """
+            df_result = pd.read_sql(query, engine)
+            
             # 用于累积处理后的行的列表
             processed_rows = []
 
             # 处理DataFrame中的每一行
-            for _, row in df_embedding.iterrows():
+            for _, row in df_result.iterrows():
                 custom_id = row["cmetadata"]["id"]
                 document = row["document"]
+                training_data_type = row["training_data_type"].lower()  # 转为小写以统一处理
                 
-                # 从ID判断训练数据类型
-                if isinstance(custom_id, int) or str(custom_id).isdigit():
-                    id_value = int(custom_id)
-                    # 根据ID前缀判断类型:
-                    # 0-99999: 文档
-                    # 100000-199999: DDL
-                    # 200000-299999: SQL
-                    if id_value >= 200000:  # SQL
-                        training_data_type = "sql"
-                    elif id_value >= 100000:  # DDL
-                        training_data_type = "ddl"
-                    else:  # 文档
-                        training_data_type = "documentation"
-                else:
-                    # 兼容旧的UUID格式
-                    training_data_type = "documentation" if custom_id[-3:] == "doc" else custom_id[-3:]
-
+                # 根据类型处理数据
                 if training_data_type == "sql":
                     # 将文档字符串转换为字典
                     try:
@@ -336,15 +328,29 @@ class PG_VectorStore(VannaBase):
                         question = doc_dict.get("question")
                         content = doc_dict.get("sql")
                     except (ValueError, SyntaxError):
-                        logging.info(f"由于解析错误，跳过ID为 {custom_id} 的行。")
-                        continue
+                        print(f"警告: SQL解析错误，ID={custom_id}，将尝试更宽松的解析")
+                        # 尝试更宽松的解析
+                        if isinstance(document, str) and "question" in document and "sql" in document:
+                            try:
+                                # 尝试使用JSON解析
+                                doc_dict = json.loads(document)
+                                question = doc_dict.get("question")
+                                content = doc_dict.get("sql")
+                            except:
+                                # 如果解析失败，使用原始文档
+                                question = None
+                                content = document
+                        else:
+                            question = None
+                            content = document
                 elif training_data_type in ["documentation", "ddl"]:
                     question = None  # 问题的默认值
                     content = document
                 else:
-                    # 如果后缀无法识别，跳过此行
-                    logging.info(f"由于无法识别的训练数据类型，跳过ID为 {custom_id} 的行。")
-                    continue
+                    # 未知类型，使用原始文档
+                    print(f"警告: 未知训练数据类型 '{training_data_type}'，ID={custom_id}")
+                    question = None
+                    content = document
 
                 # 将处理后的数据添加到列表中
                 processed_rows.append(
@@ -353,7 +359,16 @@ class PG_VectorStore(VannaBase):
 
             # 从处理后的行列表创建DataFrame
             df_processed = pd.DataFrame(processed_rows)
-            print(f"获取到 {len(df_processed)} 条训练数据")
+            
+            # 输出详细统计信息
+            total = len(df_processed)
+            if not df_processed.empty:
+                by_type = df_processed["training_data_type"].value_counts().to_dict()
+                print(f"获取到 {total} 条训练数据:")
+                for type_name, count in by_type.items():
+                    print(f" - {type_name}: {count}条")
+            else:
+                print(f"获取到 {total} 条训练数据")
             
             return df_processed
         except Exception as e:
