@@ -58,7 +58,7 @@ OLLAMA_EMBEDDING_MODEL = "quentinz/bge-large-zh-v1.5"
 OLLAMA_EMBEDDING_DIMENSION = 1024  
 
 # 应用数据库连接配置 (业务数据库)
-DB_HOST = "127.0.0.1"
+DB_HOST = "192.168.67.10"
 DB_PORT = 5432
 DB_NAME = "retail_dw"
 DB_USER = "postgres"
