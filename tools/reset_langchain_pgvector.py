@@ -79,8 +79,8 @@ def reset_langchain_pgvector(host=None, port=None, dbname=None, user=None, passw
             print("创建langchain_pg_collection表...")
             cursor.execute("""
             CREATE TABLE langchain_pg_collection (
-                uuid UUID PRIMARY KEY,
-                name VARCHAR(50),
+                uuid UUID not null PRIMARY KEY,
+                name VARCHAR(50) not null,
                 cmetadata JSONB
             )
             """)
@@ -116,8 +116,8 @@ def reset_langchain_pgvector(host=None, port=None, dbname=None, user=None, passw
             print("创建langchain_pg_embedding表...")
             cursor.execute(f"""
             CREATE TABLE langchain_pg_embedding (
-                uuid UUID PRIMARY KEY,
-                collection_id UUID REFERENCES langchain_pg_collection(uuid) ON DELETE CASCADE,
+                id text not null primary key,
+                collection_id UUID,
                 document TEXT,
                 embedding VECTOR({dimension}),
                 cmetadata JSONB
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     parser.add_argument('--dbname', type=str, help='数据库名称')
     parser.add_argument('--user', type=str, help='数据库用户')
     parser.add_argument('--password', type=str, help='数据库密码')
-    parser.add_argument('--dimension', type=int, default=1536, help='向量维度 (默认: 1536)')
+    parser.add_argument('--dimension', type=int, default=1024, help='向量维度 (默认: 1024)')
     parser.add_argument('--force', action='store_true', help='强制执行，不提示确认')
     
     args = parser.parse_args()

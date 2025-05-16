@@ -25,8 +25,6 @@ class Myvanna_DeepSeek_PgVector(PG_VectorStore, DeepSeekChat):
         DeepSeekChat.__init__(self, config=config)
 
 
-
-
 def create_vanna_instance(config_module=None):
     """
     工厂函数：创建并初始化一个Myvanna实例

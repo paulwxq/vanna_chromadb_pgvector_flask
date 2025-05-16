@@ -1,3 +1,9 @@
+# 导入dotenv库读取.env文件
+from dotenv import load_dotenv
+import os
+
+# 加载.env文件中的环境变量
+load_dotenv()
 
 # 使用的模型类型（"qwen" 或 "deepseek"）
 # 通过修改这个值来切换使用的模型
@@ -9,7 +15,7 @@ VECTOR_DB_TYPE = "pgvector"
 
 # DeepSeek模型配置
 DEEPSEEK_CONFIG = {
-    "api_key": "sk-",  # 需要替换为实际的API密钥
+    "api_key": os.getenv("DEEPSEEK_API_KEY"),  # 从环境变量读取API密钥
     "model": "deepseek-reasoner",  # deepseek-chat, deepseek-reasoner
     "allow_llm_to_see_data": True,
     "temperature": 0.6,
@@ -24,7 +30,7 @@ DEEPSEEK_CONFIG = {
 
 # Qwen模型配置
 QWEN_CONFIG = {
-    "api_key": "sk-",
+    "api_key": os.getenv("QWEN_API_KEY"),  # 从环境变量读取API密钥
     "model": "qwen-plus",
     "allow_llm_to_see_data": True,
     "temperature": 0.6,
@@ -52,7 +58,7 @@ DB_USER = "postgres"
 DB_PASSWORD = "postgres"
 
 # PgVector数据库连接配置 (向量数据库，独立于业务数据库)
-PGVECTOR_HOST = "127.0.0.1"
+PGVECTOR_HOST = "192.168.67.10"
 PGVECTOR_PORT = 5432
 PGVECTOR_DB = "vector_db"
 PGVECTOR_USER = "postgres"

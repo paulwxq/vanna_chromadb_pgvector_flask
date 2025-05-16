@@ -4,6 +4,7 @@ import time
 import re
 import json
 import sys
+import requests
 
 
 from vanna_trainer import (
@@ -14,6 +15,52 @@ from vanna_trainer import (
     flush_training,
     shutdown_trainer
 )
+
+def check_embedding_model_connection():
+    """检查嵌入模型连接是否可用
+    
+    如果无法连接到嵌入模型，则终止程序执行
+    
+    Returns:
+        bool: 连接成功返回True，否则终止程序
+    """
+    import ext_config
+
+    print("正在检查嵌入模型连接...")
+    try:
+        # 检查配置是否使用Ollama嵌入
+        if ext_config.DEEPSEEK_CONFIG.get("use_ollama_embedding") or ext_config.QWEN_CONFIG.get("use_ollama_embedding"):
+            # 直接检查Ollama服务是否可用
+            response = requests.get(f"{ext_config.OLLAMA_BASE_URL}/api/tags")
+            
+            if response.status_code != 200:
+                raise Exception(f"Ollama服务返回错误状态码: {response.status_code}")
+                
+            # 检查嵌入模型是否可用
+            embedding_model = ext_config.OLLAMA_EMBEDDING_MODEL
+            models = [model["name"] for model in response.json().get("models", [])]
+            
+            if not any(embedding_model.split(":")[0] in model for model in models):
+                print(f"警告: 未找到指定的嵌入模型 {embedding_model}，但Ollama服务正常运行")
+                print(f"可用模型: {models}")
+                
+            print(f"Ollama服务连接成功! 可以继续训练过程。")
+            return True
+        else:
+            # 使用vanna实例测试
+            from vanna_factory import create_vanna_instance
+            vn = create_vanna_instance()
+            
+            # 简单测试vanna实例
+            test_sql = "SELECT 1"
+            _ = vn.run_sql(test_sql)
+            
+            print("向量数据库连接成功! 可以继续训练过程。")
+            return True
+    except Exception as e:
+        print(f"\n错误: 无法连接到嵌入模型或向量数据库: {e}")
+        print("训练过程终止。请确保Ollama服务正在运行且配置正确，或检查向量数据库连接。")
+        sys.exit(1)  # 终止程序执行
 
 def read_file_by_delimiter(filepath, delimiter="---"):
     """通用读取：将文件按分隔符切片为多个段落"""
@@ -289,6 +336,9 @@ def main():
     import os
     import ext_config
 
+    # 检查嵌入模型连接
+    check_embedding_model_connection()
+    
     # 打印当前使用的向量数据库
     print(f"\n===== 当前使用的向量数据库: {ext_config.VECTOR_DB_TYPE} =====")
     
