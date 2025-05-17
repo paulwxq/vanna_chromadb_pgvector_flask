@@ -1,5 +1,9 @@
+"""
+修正后的工厂文件，使用正确的中文千问AI实现
+"""
 from mychromadb import My_ChromaDB_VectorStore
-from myqianwen import QianWenAI_Chat
+from myqianwen.QianwenAI_chat import QianWenAI_Chat
+from myqianwen.QiawenAI_chat_cn import QianWenAI_Chat_CN
 from mypgvector import PG_VectorStore
 from mydeepseek import DeepSeekChat
 import ext_config
@@ -24,6 +28,17 @@ class Myvanna_DeepSeek_PgVector(PG_VectorStore, DeepSeekChat):
         PG_VectorStore.__init__(self, config=config)
         DeepSeekChat.__init__(self, config=config)
 
+# 使用正确实现的中文版Vanna类
+class Myvanna_ChineseQwen_ChromaDB(My_ChromaDB_VectorStore, QianWenAI_Chat_CN):
+    def __init__(self, config=None):
+        My_ChromaDB_VectorStore.__init__(self, config=config)
+        QianWenAI_Chat_CN.__init__(self, config=config)
+
+class Myvanna_ChineseQwen_PgVector(PG_VectorStore, QianWenAI_Chat_CN):
+    def __init__(self, config=None):
+        PG_VectorStore.__init__(self, config=config)
+        QianWenAI_Chat_CN.__init__(self, config=config)
+
 
 def create_vanna_instance(config_module=None):
     """
@@ -45,6 +60,9 @@ def create_vanna_instance(config_module=None):
     # 确定使用的向量数据库类型
     vector_db_type = config_module.VECTOR_DB_TYPE.lower()
     
+    # 获取是否使用中文提示词（决定是否使用ChineseQianWenAI_Chat实现）
+    use_chinese_prompts = getattr(config_module, "USE_CHINESE_PROMPTS", False)
+    
     # 根据模型类型选择对应的配置
     if model_type == "deepseek":
         config = config_module.DEEPSEEK_CONFIG.copy()
@@ -52,6 +70,9 @@ def create_vanna_instance(config_module=None):
     elif model_type == "qwen":
         config = config_module.QWEN_CONFIG.copy()
         print(f"创建Qwen模型实例，使用模型: {config.get('model', 'qwen-plus-latest')}")
+        # 如果启用中文提示词，打印信息（注意：language已在配置中设置为Chinese）
+        if use_chinese_prompts:
+            print("使用中文优化版本的千问实现")
     else:
         raise ValueError(f"不支持的模型类型: {model_type}") 
     
@@ -83,8 +104,17 @@ def create_vanna_instance(config_module=None):
     else:
         raise ValueError(f"不支持的向量数据库类型: {vector_db_type}")
     
-    # 根据模型类型和向量数据库类型创建实例
-    if model_type == "deepseek" and vector_db_type == "chromadb":
+    # 根据模型类型、向量数据库类型和是否使用中文提示词创建实例
+    # 处理中文特殊情况
+    if model_type == "qwen" and use_chinese_prompts:
+        if vector_db_type == "chromadb":
+            vn = Myvanna_ChineseQwen_ChromaDB(config=config)
+            print("创建中文千问+ChromaDB实例")
+        elif vector_db_type == "pgvector":
+            vn = Myvanna_ChineseQwen_PgVector(config=config)
+            print("创建中文千问+PgVector实例")
+    # 处理原有的组合
+    elif model_type == "deepseek" and vector_db_type == "chromadb":
         vn = Myvanna_DeepSeek_ChromaDB(config=config)
     elif model_type == "deepseek" and vector_db_type == "pgvector":
         vn = Myvanna_DeepSeek_PgVector(config=config)

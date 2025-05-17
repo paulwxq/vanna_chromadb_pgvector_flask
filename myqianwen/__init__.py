@@ -1,2 +1,3 @@
 from .QianwenAI_chat import QianWenAI_Chat
 from .QianwenAI_embeddings import QianWenAI_Embeddings
+from .QiawenAI_chat_cn import QianWenAI_Chat_CN
